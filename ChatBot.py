@@ -121,7 +121,8 @@ class ChatBot:
 
     def setup_settings(self):
         Settings.embed_model = HuggingFaceEmbedding(model_name="intfloat/multilingual-e5-large-instruct")
-        Settings.llm = Ollama(model="llama3:instruct", request_timeout=60.0)
+        Settings.llm = Ollama(model="llama3.2:3b-instruct-fp16", request_timeout=60.0)
+        # Settings.llm = Ollama(model="llama3:instruct", request_timeout=60.0)
         # Settings.llm = OpenAI(model="gpt-3.5-turbo-instruct")
         # Settings.llm = Ollama(model="cwchang/llama3-taide-lx-8b-chat-alpha1", request_timeout=60.0)
         # Settings.llm = Ollama(model="ycchen/breeze-7b-instruct-v1_0:latest", request_timeout=60.0)
@@ -183,7 +184,7 @@ class ChatBot:
                 nttu_index, similarity_top_k=3, citation_chunk_size=512)
 
             # Load custom prompts for citation engine
-            with open("NTTU-Digital-System-Design-Lab-Project/query_engine_prompt_CN.json", "r", encoding="utf-8") as file:
+            with open("query_engine_prompt_CN.json", "r", encoding="utf-8") as file:
                 prompts_dict = json.load(file)
             custom_qa_prompt_str = prompts_dict.get("response_synthesizer:text_qa_template")['PromptTemplate']['template']
             custom_refine_prompt_str = prompts_dict.get("response_synthesizer:refine_template")['PromptTemplate']['template']
@@ -216,7 +217,7 @@ class ChatBot:
             agent = ReActAgent.from_tools(tools=tools, verbose=True, embed_model="local")
 
             # Load system prompts from file
-            react_system_header_str = self.load_string_from_file('NTTU-Digital-System-Design-Lab-Project/react_system_header_str_CN.txt')
+            react_system_header_str = self.load_string_from_file('react_system_header_str_CN.txt')
             if react_system_header_str:
                 react_system_prompt = PromptTemplate(react_system_header_str)
                 agent.update_prompts({"agent_worker:system_prompt": react_system_prompt})

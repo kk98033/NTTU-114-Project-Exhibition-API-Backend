@@ -1,1 +1,7 @@
 venv/
+storage/
+*.wav
+ffmpeg.exe
+.history
+.env
+*.pdf
