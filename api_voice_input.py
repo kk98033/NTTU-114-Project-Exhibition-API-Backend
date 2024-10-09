@@ -1,6 +1,6 @@
-from ChatBot import ChatBot
-from WhisperTranscriber import WhisperTranscriber
-from Denoiser import Denoiser
+from core.chatbot_core import ChatBot
+from utils.WhisperTranscriber import WhisperTranscriber
+from utils.Denoiser import Denoiser
 
 from flask import Flask, request, jsonify, send_file, make_response
 from requests_toolbelt.multipart.encoder import MultipartEncoder

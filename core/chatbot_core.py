@@ -108,11 +108,19 @@ class ChatBot:
         load_dotenv()   
 
     def prepare_environment(self):
-        nltk.download('averaged_perceptron_tagger')
-        nest_asyncio.apply()
-        self.current_path = os.getcwd()
-        print("當前工作目錄是：", self.current_path)
-        print(os.path.exists("./storage/"))
+        # nltk.download('averaged_perceptron_tagger')
+        # nest_asyncio.apply()
+
+        # 獲取專案根目錄
+        self.root_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        print("專案根目錄是：", self.root_path)
+
+        # 確認 storage 資料夾是否存在於專案根目錄
+        storage_path = os.path.join(self.root_path, "storage")
+        if os.path.exists(storage_path):
+            print(f"'{storage_path}' 資料夾存在")
+        else:
+            print(f"'{storage_path}' 資料夾不存在")
 
     def configure_agent(self):
         path = "./storage/taiwanese"
@@ -120,13 +128,13 @@ class ChatBot:
             print('storage does not exist!')
             # os.makedirs(path)
             tw_docs = SimpleDirectoryReader(
-                input_files=["./原住民資料.pdf", "./原住民資料2.pdf"]
+                input_files=["./pdfs/原住民資料.pdf", "./pdfs/原住民資料2.pdf"]
             ).load_data()
 
         nttu_path = "./storage/nttu"
         if not os.path.exists(nttu_path):
             nttu_docs = SimpleDirectoryReader(
-                input_files=["./台東大學介紹.pdf"]
+                input_files=["./pdfs/台東大學介紹.pdf"]
             ).load_data()
 
         try:
@@ -159,7 +167,7 @@ class ChatBot:
                 nttu_index, similarity_top_k=3, citation_chunk_size=512)
 
             # Load custom prompts for citation engine
-            with open("query_engine_prompt_CN.json", "r", encoding="utf-8") as file:
+            with open("core/promp_configs/query_engine_prompt_CN.json", "r", encoding="utf-8") as file:
                 prompts_dict = json.load(file)
             custom_qa_prompt_str = prompts_dict.get("response_synthesizer:text_qa_template")['PromptTemplate']['template']
             custom_refine_prompt_str = prompts_dict.get("response_synthesizer:refine_template")['PromptTemplate']['template']
@@ -192,7 +200,7 @@ class ChatBot:
             agent = ReActAgent.from_tools(tools=tools, verbose=True, embed_model="local")
 
             # Load system prompts from file
-            react_system_header_str = self.load_string_from_file('react_system_header_str_CN.txt')
+            react_system_header_str = self.load_string_from_file('core/promp_configs/react_system_header_str_CN.txt')
             if react_system_header_str:
                 react_system_prompt = PromptTemplate(react_system_header_str)
                 agent.update_prompts({"agent_worker:system_prompt": react_system_prompt})

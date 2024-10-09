@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify, Response, stream_with_context
-from ChatBot import ChatBot
+from core.chatbot_core import ChatBot
 import logging
 
 app = Flask(__name__)

@@ -1,8 +1,8 @@
 venv/
 storage/
+__pycache__/
 *.wav
-ffmpeg.exe
+*.pdf
 .history
 .env
-*.pdf
-__pycache__/
+ffmpeg.exe
