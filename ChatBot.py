@@ -22,6 +22,7 @@ from llama_index.llms.ollama import Ollama
 from llama_index.core.agent import ReActAgent
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.llms.openai import OpenAI
+from llama_index.embeddings.openai import OpenAIEmbedding
 from llama_index.core.tools import FunctionTool
 
 # TODO: 把 tool 獨立寫在另外一個檔案
@@ -81,36 +82,6 @@ def crawl_webpage(url):
         print(f"An error occurred: {e}")
         return ""
 
-# print(len(web_search("CEP49")))
-
-
-# a = google_search_keyword.search_google(google_search_keyword.keyword)
-# for i in range(len(a)):
-#     url = a[i]
-#     text_content = crawl_webpage(url)
-#     # 輸出獲取到的文字內容
-#     if text_content:
-#         print(f'WebPage{i+1}:')
-#         print(text_content)
-
-
-# api_key = ""
-
-# keyword = input("Please enter a keyword：")
-# search_results = search_google(keyword, api_key)
-
-# if search_results:
-#     print("Search results link：")
-#     for link in search_results:
-#         print(link)
-# else:
-#     print("No relevant search results found.")
-
-
-# search_results_array = search_results if search_results else []
-# print("Search results are stored in array:", search_results_array)
-
-
 class ChatBot:
     def __init__(self):
         self.setup_settings()
@@ -121,7 +92,11 @@ class ChatBot:
 
     def setup_settings(self):
         Settings.embed_model = HuggingFaceEmbedding(model_name="intfloat/multilingual-e5-large-instruct")
-        Settings.llm = Ollama(model="llama3.2:3b-instruct-fp16", request_timeout=60.0)
+        # Settings.embed_model = OpenAIEmbedding(embed_batch_size=10)
+
+        # Settings.llm = Ollama(model="llama3.2:3b-instruct-fp16", request_timeout=60.0)
+        # Settings.llm = Ollama(model="llama3.2:1b", request_timeout=60.0)
+        Settings.llm = OpenAI(model="gpt-4o-mini-2024-07-18", request_timeout=60.0)
         # Settings.llm = Ollama(model="llama3:instruct", request_timeout=60.0)
         # Settings.llm = OpenAI(model="gpt-3.5-turbo-instruct")
         # Settings.llm = Ollama(model="cwchang/llama3-taide-lx-8b-chat-alpha1", request_timeout=60.0)

@@ -5,3 +5,4 @@ ffmpeg.exe
 .history
 .env
 *.pdf
+__pycache__/
