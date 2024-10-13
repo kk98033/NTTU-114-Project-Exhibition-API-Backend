@@ -96,7 +96,7 @@ class ChatBot:
 
         # Settings.llm = Ollama(model="llama3.2:3b-instruct-fp16", request_timeout=60.0)
         # Settings.llm = Ollama(model="llama3.2:1b", request_timeout=60.0)
-        Settings.llm = OpenAI(model="gpt-4o-mini-2024-07-18", request_timeout=60.0)
+        Settings.llm = OpenAI(model="gpt-4o-mini-2024-07-18", stream=True, request_timeout=60.0)
         # Settings.llm = Ollama(model="llama3:instruct", request_timeout=60.0)
         # Settings.llm = OpenAI(model="gpt-3.5-turbo-instruct")
         # Settings.llm = Ollama(model="cwchang/llama3-taide-lx-8b-chat-alpha1", request_timeout=60.0)

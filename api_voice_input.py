@@ -10,6 +10,7 @@ import logging
 import base64
 import os
 import re
+import subprocess
 
 class ColoredFormatter(logging.Formatter):
     COLORS = {
@@ -32,6 +33,8 @@ app.config['UPLOAD_FOLDER'] = os.path.join(os.getcwd(), 'uploads')
 app.config['DENOSIED_FOLDER'] = os.path.join(os.getcwd(), 'denoised')
 app.config['OUTPUT_FOLDER'] = os.path.join(os.getcwd(), 'output')
 app.config['ALLOWED_EXTENSIONS'] = {'wav', 'mp3', 'ogg'}
+
+print("Current working directory:", os.getcwd())
 
 # 設置日誌記錄器
 handler = logging.StreamHandler()
@@ -60,9 +63,11 @@ def parse_custom_tag(response):
 @app.route('/voice_chat', methods=['POST'])
 def normal_chat():
     if 'file' not in request.files:
+        app.logger.warning("No file part in the request")
         return jsonify({"error": "No file part"}), 400
     file = request.files['file']
     if file.filename == '':
+        app.logger.warning("No selected file in the request")
         return jsonify({"error": "No selected file"}), 400
     if file and allowed_file(file.filename):
         try:
@@ -72,22 +77,30 @@ def normal_chat():
             output_audio = os.path.join(app.config['OUTPUT_FOLDER'], 'output.ogg')
             file.save(input_path)
 
+            app.logger.info(f"Saved uploaded file to: {input_path}")
+
+            # 檢查檔案是否存在
+            if not os.path.exists(input_path):
+                app.logger.error(f"Uploaded file does not exist at: {input_path}")
+                return jsonify({"error": "File save failed"}), 500
+
             # Initialize Denoiser and process the file
             denoiser = Denoiser()
+            app.logger.info(f"Processing file with Denoiser: {input_path}")
             denoiser.process(input_path, denoised_wav)
 
             # Initialize WhisperTranscriber and transcribe the denoised file
             transcriber = WhisperTranscriber()
+            app.logger.info(f"Transcribing file with WhisperTranscriber: {denoised_wav}")
             transcription = transcriber.transcribe(denoised_wav)
             app.logger.info(f"\033[94m [Whisper transcription] {transcription}\033[0m")
 
             response = chat_agent.normal_chat(transcription)
             
-            # 假設 response 有一個 response 屬性
             response_text = response.response
             
             app.logger.info(f'\033[94m [Bot response] {response_text}')
-
+        
             parsed_response = parse_custom_tag(response_text)
             action = parsed_response.get('action')
             app.logger.info(f'Parsed action: {action}')
@@ -108,16 +121,20 @@ def normal_chat():
                 response.headers['Content-Type'] = encoder.content_type
                 return response
         except Exception as e:
-            app.logger.error(f"Error processing file: {e}")
+            app.logger.error(f"Error processing file: {e}", exc_info=True)
             return jsonify({"error": "Internal server error"}), 500
         finally:
             if os.path.exists(input_path):
                 os.remove(input_path)
+                app.logger.info(f"Removed input file: {input_path}")
             if os.path.exists(denoised_wav):
                 os.remove(denoised_wav)
+                app.logger.info(f"Removed denoised file: {denoised_wav}")
             if os.path.exists(output_audio):
                 os.remove(output_audio)
+                app.logger.info(f"Removed output audio file: {output_audio}")
     else:
+        app.logger.warning(f"File type not allowed: {file.filename}")
         return jsonify({"error": "File type not allowed"}), 400
 
 def call_tts_and_save(text, save_path):
@@ -139,6 +156,17 @@ def stream_audio_from_api(uri, save_path):
         print(f"Error: {e}")
 
 if __name__ == '__main__':
+    project_root = os.path.abspath(os.path.dirname(__file__))
+    ffmpeg_path = os.path.join(project_root, 'ffmpeg', 'bin')
+    os.environ['PATH'] += os.pathsep + ffmpeg_path
+
+    # 確認 ffmpeg 是否可用
+    try:
+        result = subprocess.run(['ffmpeg', '-version'], capture_output=True, text=True, check=True)
+        app.logger.info(f"ffmpeg is accessible:\n{result.stdout}")
+    except Exception as e:
+        app.logger.error(f"ffmpeg is not accessible: {e}")
+
     current_working_directory = os.getcwd()
     app.logger.info(f"Current working directory: {current_working_directory}")
 

@@ -1,17 +1,33 @@
+# utils/Denoiser.py
 import torch
 import torchaudio
 import subprocess
 from denoiser import pretrained
 from denoiser.dsp import convert_audio
+import logging
 
 class Denoiser:
     def __init__(self, model_path='dns64', device='cuda'):
+        # 列出可用的後端並設置一個
+        available_backends = torchaudio.list_audio_backends()
+        print(f"Available torchaudio backends: {available_backends}")
+        if "sox_io" in available_backends:
+            torchaudio.set_audio_backend("sox_io")
+        elif "soundfile" in available_backends:
+            torchaudio.set_audio_backend("soundfile")
+        else:
+            raise RuntimeError("No suitable torchaudio backend found.")
+        
         self.model = pretrained.dns64().to(device)
         self.device = device
 
     def load_audio(self, file_path):
-        wav, sr = torchaudio.load(file_path)
-        return wav.to(self.device), sr
+        try:
+            wav, sr = torchaudio.load(file_path)
+            return wav.to(self.device), sr
+        except Exception as e:
+            logging.getLogger('Denoiser').error(f"Failed to load audio file: {e}")
+            raise
 
     def denoise_audio(self, wav, sr):
         wav = convert_audio(wav, sr, self.model.sample_rate, self.model.chin)
@@ -20,7 +36,11 @@ class Denoiser:
         return denoised
 
     def save_audio(self, audio_tensor, file_path, sample_rate):
-        torchaudio.save(file_path, audio_tensor.cpu(), sample_rate)
+        try:
+            torchaudio.save(file_path, audio_tensor.cpu(), sample_rate)
+        except Exception as e:
+            logging.getLogger('Denoiser').error(f"Failed to save audio file: {e}")
+            raise
 
     def convert_to_mp3(self, wav_file, mp3_file):
         subprocess.run(['ffmpeg', '-i', wav_file, mp3_file])
@@ -35,4 +55,4 @@ class Denoiser:
 
 if __name__ == '__main__':
     denoiser = Denoiser()
-    denoiser.process('alex_noisy.mp3', 'denoised.wav', 'denoised.mp3')
+    denoiser.process('..\tests\test.wav', 'denoised.wav', 'denoised.mp3')
