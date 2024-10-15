@@ -3,6 +3,8 @@ storage/
 __pycache__/
 *.wav
 *.pdf
+*.ogg
+*.mp3
 .history
 .env
 ffmpeg.exe

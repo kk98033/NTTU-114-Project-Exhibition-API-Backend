@@ -107,19 +107,14 @@ def normal_chat():
 
             call_tts_and_save(response_text, output_audio)
 
-            # 構建多部分表單數據響應
-            with open(output_audio, 'rb') as audio_file:
-                audio_base64 = base64.b64encode(audio_file.read()).decode('utf-8')
+            # 檢查文件是否成功保存
+            if not os.path.exists(output_audio):
+                app.logger.error(f"Error: Output audio file {output_audio} not found.")
+                return jsonify({"error": "Audio file not found"}), 500
 
-                encoder = MultipartEncoder(
-                    fields={
-                        'json': ('json', jsonify({'action': action}).get_data(as_text=True), 'application/json'),
-                        'file': ('output.ogg', audio_base64, 'audio/ogg')
-                    }
-                )
-                response = make_response(encoder.to_string())
-                response.headers['Content-Type'] = encoder.content_type
-                return response
+            # 使用 send_file 直接返回音訊文件
+            return send_file(output_audio, mimetype='audio/ogg', as_attachment=True)
+        
         except Exception as e:
             app.logger.error(f"Error processing file: {e}", exc_info=True)
             return jsonify({"error": "Internal server error"}), 500
@@ -130,9 +125,9 @@ def normal_chat():
             if os.path.exists(denoised_wav):
                 os.remove(denoised_wav)
                 app.logger.info(f"Removed denoised file: {denoised_wav}")
-            if os.path.exists(output_audio):
-                os.remove(output_audio)
-                app.logger.info(f"Removed output audio file: {output_audio}")
+            # if os.path.exists(output_audio):
+            #     os.remove(output_audio)
+            #     app.logger.info(f"Removed output audio file: {output_audio}")
     else:
         app.logger.warning(f"File type not allowed: {file.filename}")
         return jsonify({"error": "File type not allowed"}), 400
@@ -148,7 +143,8 @@ def stream_audio_from_api(uri, save_path):
         
         with open(save_path, 'wb') as audio_file:
             for chunk in response.iter_content(chunk_size=8192):
-                audio_file.write(chunk)
+                if chunk:  # 檢查 chunk 是否有數據
+                    audio_file.write(chunk)
         
         print(f"Audio saved to {save_path}")
     
