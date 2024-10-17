@@ -74,7 +74,7 @@ def normal_chat():
             filename = secure_filename(file.filename)
             input_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
             denoised_wav = os.path.join(app.config['DENOSIED_FOLDER'], 'denoised.wav')
-            output_audio = os.path.join(app.config['OUTPUT_FOLDER'], 'output.ogg')
+            output_audio = os.path.join(app.config['OUTPUT_FOLDER'], 'output.wav')
             file.save(input_path)
 
             app.logger.info(f"Saved uploaded file to: {input_path}")
@@ -118,8 +118,11 @@ def normal_chat():
 
                 encoder = MultipartEncoder(
                     fields={
-                        'json': ('json', jsonify({'action': action}).get_data(as_text=True), 'application/json'),
-                        'file': ('output.ogg', audio_base64, 'audio/ogg')
+                        'json': ('json', jsonify({
+                            'action': action,
+                            'response': response_text
+                        }).get_data(as_text=True), 'application/json'),
+                        'file': ('output.wav', audio_base64, 'audio/wav')
                     }
                 )
                 response = make_response(encoder.to_string())
@@ -136,9 +139,9 @@ def normal_chat():
             if os.path.exists(denoised_wav):
                 os.remove(denoised_wav)
                 app.logger.info(f"Removed denoised file: {denoised_wav}")
-            if os.path.exists(output_audio):
-                os.remove(output_audio)
-                app.logger.info(f"Removed output audio file: {output_audio}")
+            # if os.path.exists(output_audio):
+            #     os.remove(output_audio)
+            #     app.logger.info(f"Removed output audio file: {output_audio}")
     else:
         app.logger.warning(f"File type not allowed: {file.filename}")
         return jsonify({"error": "File type not allowed"}), 400

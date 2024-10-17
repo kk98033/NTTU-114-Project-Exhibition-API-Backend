@@ -1,6 +1,9 @@
 venv/
 storage/
 __pycache__/
+uploads/
+output/
+denoised/
 *.wav
 *.pdf
 *.ogg
