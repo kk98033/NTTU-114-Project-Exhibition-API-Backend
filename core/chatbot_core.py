@@ -182,7 +182,7 @@ class ChatBot:
                 query_engine=tw_citation_engine,
                 metadata=ToolMetadata(
                     name="Taiwanese_indigenous",
-                    description="用於回答有關台灣原住民的問題。如果被問到'台灣原住民'相關問題時優先使用"
+                    description="用於幫助回答有關台灣原住民的問題，遇到**原住民**相關問題一律要使用此工具。例如:台灣原住民有幾族?, 介紹XXX族, 任何有關於'原住民'的問題"
                 )
             )
 
