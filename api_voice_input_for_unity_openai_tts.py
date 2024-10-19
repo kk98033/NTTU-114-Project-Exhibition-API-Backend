@@ -156,20 +156,38 @@ def normal_chat():
 
 def call_tts_and_save(text, save_path):
     try:
-        # Call the OpenAI TTS API
+        # 呼叫 OpenAI 的 TTS API
         response = openai.audio.speech.create(
-            model="tts-1",  # Use tts-1-hd for higher quality
-            voice="nova",   # Specify the voice you want
-            input=text      # Input text
+            model="tts-1",  # 可以使用 tts-1-hd 來獲得更高品質的音頻
+            voice="nova",   # 指定所需的聲音
+            input=text      # 輸入文字
         )
         
-        # Save the generated audio to a file
-        with open(save_path, "wb") as f:
+        # 暫時將 TTS 生成的音頻保存為中間檔案
+        temp_output = save_path.replace(".wav", "_temp.wav")
+        with open(temp_output, "wb") as f:
             f.write(response.read())
-        print(f"Audio saved to {save_path}")
+        print(f"暫存音頻已保存到 {temp_output}")
+        
+        # 使用 ffmpeg 將暫存音頻轉換為 PCM 格式的 .wav 檔案
+        ffmpeg_command = [
+            'ffmpeg',
+            '-y',                   # 加入 -y 強制覆蓋已存在的檔案
+            '-i', temp_output,       # 輸入文件
+            '-acodec', 'pcm_s16le',  # 使用 PCM 格式
+            '-ar', '44100',          # 設置採樣率
+            save_path                # 輸出文件
+        ]
+        subprocess.run(ffmpeg_command, check=True)
+        print(f"已轉換音頻並保存到 {save_path}")
+        
+        # 刪除暫存文件
+        if os.path.exists(temp_output):
+            os.remove(temp_output)
+            print(f"刪除了暫存音頻文件: {temp_output}")
     
     except Exception as e:
-        print(f"Error calling TTS API: {e}")
+        print(f"調用 TTS API 時發生錯誤: {e}")
 
 def stream_audio_from_api(uri, save_path):
     try:
@@ -212,4 +230,4 @@ if __name__ == '__main__':
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
     os.makedirs(app.config['DENOSIED_FOLDER'], exist_ok=True)
     os.makedirs(app.config['OUTPUT_FOLDER'], exist_ok=True)
-    app.run(host='0.0.0.0', port=6969, debug=True, use_reloader=False)
+    app.run(host='0.0.0.0', port=443, debug=True, use_reloader=False)
