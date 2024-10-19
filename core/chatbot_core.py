@@ -131,18 +131,28 @@ class ChatBot:
                 input_files=["./pdfs/原住民資料.pdf", "./pdfs/原住民資料2.pdf"]
             ).load_data()
 
-        nttu_path = "./storage/nttu"
-        if not os.path.exists(nttu_path):
-            nttu_docs = SimpleDirectoryReader(
-                input_files=["./pdfs/台東大學介紹.pdf"]
+        # nttu_path = "./storage/nttu"
+        # if not os.path.exists(nttu_path):
+        #     nttu_docs = SimpleDirectoryReader(
+        #         input_files=["./pdfs/台東大學介紹.pdf"]
+        #     ).load_data()
+
+        museum_path = "./storage/museum"
+        if not os.path.exists(museum_path):
+            print(f'storage {museum_path} does not exist!')
+            museum_docs = SimpleDirectoryReader(
+                input_files=["./pdfs/博物館物品.pdf"]
             ).load_data()
 
         try:
             storage_context = StorageContext.from_defaults(persist_dir=path)
             tw_index = load_index_from_storage(storage_context)
 
-            nttu_storage_context = StorageContext.from_defaults(persist_dir=nttu_path)
-            nttu_index = load_index_from_storage(nttu_storage_context)
+            # nttu_storage_context = StorageContext.from_defaults(persist_dir=nttu_path)
+            # nttu_index = load_index_from_storage(nttu_storage_context)
+
+            museum_storage_context = StorageContext.from_defaults(persist_dir=museum_path)
+            museuem_index = load_index_from_storage(museum_storage_context)
 
             index_loaded = True
             print("Index loaded!")
@@ -154,17 +164,25 @@ class ChatBot:
                 tw_index.storage_context.persist(persist_dir=path)
                 index_loaded = True
 
-            if nttu_docs:
-                nttu_index = VectorStoreIndex.from_documents(nttu_docs)
-                nttu_index.storage_context.persist(persist_dir=nttu_path)
+            # if nttu_docs:
+            #     nttu_index = VectorStoreIndex.from_documents(nttu_docs)
+            #     nttu_index.storage_context.persist(persist_dir=nttu_path)
+            #     index_loaded = True
+
+            if museum_docs:
+                museuem_index = VectorStoreIndex.from_documents(museum_docs)
+                museuem_index.storage_context.persist(persist_dir=museum_path)
                 index_loaded = True
 
         if index_loaded:
             tw_citation_engine = CitationQueryEngine.from_args(
                 tw_index, similarity_top_k=3, citation_chunk_size=512)
             
-            nttu_citation_engine = CitationQueryEngine.from_args(
-                nttu_index, similarity_top_k=3, citation_chunk_size=512)
+            # nttu_citation_engine = CitationQueryEngine.from_args(
+            #     nttu_index, similarity_top_k=3, citation_chunk_size=512)
+
+            museum_citation_engine = CitationQueryEngine.from_args(
+                museuem_index, similarity_top_k=4, citation_chunk_size=1024)
 
             # Load custom prompts for citation engine
             with open("core/promp_configs/query_engine_prompt_CN.json", "r", encoding="utf-8") as file:
@@ -186,17 +204,26 @@ class ChatBot:
                 )
             )
 
-            nttu_citation_tool = QueryEngineTool(
-                query_engine=nttu_citation_engine,
+            # nttu_citation_tool = QueryEngineTool(
+            #     query_engine=nttu_citation_engine,
+            #     metadata=ToolMetadata(
+            #         name="NTTU_tool",
+            #         description="用於回答有關'台東大學', '東大','nttu'的問題。"
+            #     )
+            # )
+
+            museum_citation_tool = QueryEngineTool(
+                query_engine=museum_citation_engine,
                 metadata=ToolMetadata(
-                    name="NTTU_tool",
-                    description="用於回答有關'台東大學', '東大','nttu'的問題。"
+                    name="Museum_tool",
+                    description="用於回答有關'博物館'文物問題。例如:'編號AT003217-001是甚麼物品?','介紹人形木雕板...任何有關於'博物館'的問題"
                 )
             )
 
             show_RAG_sources_tool = FunctionTool.from_defaults(fn=self.show_RAG_sources)
 
-            tools = [nttu_citation_tool, citation_tool, show_RAG_sources_tool, web_search_tool]
+            # tools = [nttu_citation_tool, citation_tool, show_RAG_sources_tool, web_search_tool]
+            tools = [museum_citation_tool, citation_tool, show_RAG_sources_tool, web_search_tool]
             agent = ReActAgent.from_tools(tools=tools, verbose=True, embed_model="local")
 
             # Load system prompts from file
