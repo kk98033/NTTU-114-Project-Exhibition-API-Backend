@@ -1,7 +1,7 @@
 import whisper
 
 class WhisperTranscriber:
-    def __init__(self, model_name="base"):
+    def __init__(self, model_name="small"):
         """
         - "tiny": 最小的模型，適合快速識別，但精度較低。
         - "base": 平衡了速度和精度的模型。

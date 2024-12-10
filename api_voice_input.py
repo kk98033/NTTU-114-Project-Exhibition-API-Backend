@@ -85,7 +85,7 @@ def normal_chat():
                 return jsonify({"error": "File save failed"}), 500
 
             # Initialize Denoiser and process the file
-            denoiser = Denoiser()
+            # denoiser = Denoiser()
             app.logger.info(f"Processing file with Denoiser: {input_path}")
             denoiser.process(input_path, denoised_wav)
 
@@ -165,6 +165,10 @@ if __name__ == '__main__':
 
     current_working_directory = os.getcwd()
     app.logger.info(f"Current working directory: {current_working_directory}")
+
+    app.logger.info("Loading Denoiser...")
+    denoiser = Denoiser()
+    app.logger.info("Denoiser initialized!")
 
     app.logger.info("Loading chat bot...")
     chat_agent = ChatBot()
