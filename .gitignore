@@ -11,3 +11,4 @@ denoised/
 .history
 .env
 ffmpeg.exe
+codecs_list.txt
