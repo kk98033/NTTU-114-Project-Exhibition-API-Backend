@@ -26,7 +26,8 @@ class Denoiser:
         else:
             raise RuntimeError("No suitable torchaudio backend found.")
         
-        self.model = pretrained.dns64().to(device)
+        # self.model = pretrained.dns64().to(device)
+        self.model = pretrained.dns64().to(self.device)
 
     def load_audio(self, file_path):
         try:
