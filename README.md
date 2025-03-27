@@ -261,7 +261,7 @@ core/promp_configs/react_system_header_str_CN.txt
 ---
 
 ## CLI 使用方式（非 Flask）
-
+可自行選擇是否要用 streaming(目前只支援 OpenAI API)
 ```
 if __name__ == "__main__":
     bot = ChatBot()
