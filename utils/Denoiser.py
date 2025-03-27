@@ -7,19 +7,26 @@ from denoiser.dsp import convert_audio
 import logging
 
 class Denoiser:
-    def __init__(self, model_path='dns64', device='cuda'):
-        # 列出可用的後端並設置一個
+    def __init__(self, model_path='dns64', device=None):
+        # 自動判斷使用 GPU 還是 CPU
+        self.device = device or ('cuda' if torch.cuda.is_available() else 'cpu')
+        print(f"[INFO] Using device: {self.device}")
+
+        # 自動選擇 torchaudio backend
         available_backends = torchaudio.list_audio_backends()
-        print(f"Available torchaudio backends: {available_backends}")
-        if "sox_io" in available_backends:
-            torchaudio.set_audio_backend("sox_io")
-        elif "soundfile" in available_backends:
-            torchaudio.set_audio_backend("soundfile")
+        print(f"[INFO] Available torchaudio backends: {available_backends}")
+        for backend in ["sox_io", "soundfile", "sox"]:
+            if backend in available_backends:
+                try:
+                    torchaudio.set_audio_backend(backend)
+                    print(f"[INFO] Using torchaudio backend: {backend}")
+                    break
+                except:
+                    pass
         else:
             raise RuntimeError("No suitable torchaudio backend found.")
         
         self.model = pretrained.dns64().to(device)
-        self.device = device
 
     def load_audio(self, file_path):
         try:
