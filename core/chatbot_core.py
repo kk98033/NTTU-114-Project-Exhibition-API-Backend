@@ -25,7 +25,6 @@ from llama_index.llms.openai import OpenAI
 from llama_index.embeddings.openai import OpenAIEmbedding
 from llama_index.core.tools import FunctionTool
 
-# TODO: 把 tool 獨立寫在另外一個檔案
 # load .env file
 load_dotenv()
 
@@ -35,6 +34,10 @@ os.environ["google_search_api_key"] = os.getenv('google_search_api_key')
 # 忽略不安全的 SSL 警告
 warnings.filterwarnings("ignore", category=InsecureRequestWarning)
 
+# TODO: 把 tool 獨立寫在另外一個檔案
+"""
+-------- Agent 可以使用的工具 --------
+"""
 def web_search(keyword: str) -> str:
     """根據給定的關鍵字進行網頁搜尋並返回搜尋結果的主要文字內容。(keyword 只能輸入中文)"""
     urls = get_search_url(keyword=keyword)
@@ -81,11 +84,14 @@ def crawl_webpage(url):
     except requests.exceptions.RequestException as e:
         print(f"An error occurred: {e}")
         return ""
+"""
+-------- [END] Agent 可以使用的工具 --------
+"""
 
 class ChatBot:
     def __init__(self):
         self.setup_settings()
-        self.load_dotenv_file()
+        # self.load_dotenv_file() # TODO: 如果沒有影響就刪掉他
         self.prepare_environment()
         self.agent = self.configure_agent()
         self.response = None
@@ -108,9 +114,6 @@ class ChatBot:
         load_dotenv()   
 
     def prepare_environment(self):
-        # nltk.download('averaged_perceptron_tagger')
-        # nest_asyncio.apply()
-
         # 獲取專案根目錄
         self.root_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         print("專案根目錄是：", self.root_path)
