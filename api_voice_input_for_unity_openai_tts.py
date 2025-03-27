@@ -1,3 +1,44 @@
+"""
+📌 語音互動 AI 系統 API 概述
+本系統支援語音與文字互動，整合 Whisper（STT）、自訂 ChatBot、TTS（本地/雲端），提供多種互動方式與回傳格式。
+
+🧩 API 路由總覽：
+
+1️⃣ POST /voice_chat
+    - 說明：上傳語音檔（支援 .mp3/.wav/.ogg） → Whisper 辨識 → ChatBot 回應 → TTS 回傳語音
+    - 請求格式：multipart/form-data
+        - file: 語音檔案
+    - 回傳格式：multipart/form-data
+        - json: {"action": int, "response": 回應文字}
+        - file: base64 編碼的 output.wav
+
+2️⃣ POST /text_chat_unity
+    - 說明：Unity 使用者輸入文字 → 回傳文字 + 語音（Base64 編碼）
+    - 請求格式：application/json
+        - text: 要輸入的文字
+        - tts_service: "local" 或 "openai"（可選，預設為 local）
+    - 回傳格式：multipart/form-data
+        - json: {"action": int, "response": 回應文字}
+        - file: base64 編碼的 output.wav
+
+3️⃣ POST /text_chat
+    - 說明：通用文字聊天 API，可選是否回傳語音
+    - 請求格式：application/json
+        - text: 要輸入的文字
+        - generate_audio: true / false（可選，預設為 true）
+        - tts_service: "local" 或 "openai"（可選，預設為 local）
+    - 回傳格式：
+        - 若 generate_audio 為 false：json 格式 {"response": 回應文字}
+        - 若 generate_audio 為 true：multipart/form-data（同上）
+
+4️⃣ GET /test_api?prompt=xxx
+    - 說明：測試 ChatBot 與語音回應（直接播放語音）
+    - 請求格式：URL query string
+        - prompt=xxx
+    - 回傳格式：audio/wav 音訊檔（原始流回傳）
+"""
+
+
 from core.chatbot_core import ChatBot
 from utils.WhisperTranscriber import WhisperTranscriber
 from utils.Denoiser import Denoiser
@@ -124,6 +165,18 @@ def before_request_hooks():
 
 @app.route('/voice_chat', methods=['POST'])
 def normal_chat():
+    """
+    語音輸入聊天 API，支援 mp3/wav/ogg，自動降噪 + Whisper 語音辨識 + ChatBot 回應 + TTS
+
+    請求類型：multipart/form-data
+        - file: 語音檔案（副檔名為 .mp3, .wav, .ogg）
+
+    回傳類型：multipart/form-data
+        - json: {"action": int, "response": 回應文字}
+        - file: base64 編碼的 output.wav
+
+    用途：語音輸入 → 對話回應（文字 + 語音）
+    """
     if 'file' not in request.files:
         app.logger.warning("No file part in the request")
         return jsonify({"error": "No file part"}), 400
@@ -211,6 +264,21 @@ def normal_chat():
 
 @app.route('/text_chat_unity', methods=['POST'])
 def text_chat_unity():
+    """
+    Unity 專用純文字聊天 API，回傳 ChatBot 回應 + 語音音檔
+
+    請求類型：application/json
+        {
+            "text": "你想問的問題",
+            "tts_service": "local" 或 "openai"（可選，預設為 local）
+        }
+
+    回傳類型：multipart/form-data
+        - json: {"action": int, "response": 回應文字}
+        - file: base64 編碼的 output.wav
+
+    用途：提供 Unity 使用者用於文字問答與語音播放
+    """
     try:
         # 確認請求中是否有 JSON 並包含 'text' 參數
         if not request.json or 'text' not in request.json:
@@ -268,6 +336,26 @@ def text_chat_unity():
 
 @app.route('/text_chat', methods=['POST'])
 def text_chat():
+    """
+    通用純文字聊天 API，可選擇是否產生語音
+
+    請求類型：application/json
+        {
+            "text": "你想問的內容",
+            "generate_audio": true 或 false（可選，預設為 true），
+            "tts_service": "local" 或 "openai"（可選，預設為 local）
+        }
+
+    回傳：
+        若 generate_audio 為 false：
+            - JSON: {"response": 回應文字}
+        若 generate_audio 為 true：
+            - multipart/form-data:
+                - json: {"response": 回應文字}
+                - file: base64 編碼的 output.wav
+
+    用途：前端通用文字輸入，支援語音輸出功能
+    """
     try:
         # 獲取請求中的文字輸入
         if not request.json or 'text' not in request.json:
@@ -330,6 +418,16 @@ def text_chat():
 
 @app.route('/test_api', methods=['GET'])
 def test_api():
+    """
+    測試 ChatBot 與語音生成的快速 API（GET 版本）
+
+    請求類型：URL 查詢字串
+        - prompt=你想測試的文字
+
+    回傳：直接傳送 audio/wav 音訊檔案（瀏覽器會直接播放）
+
+    用途：確認文字輸入與語音輸出是否正常運作
+    """
     try:
         # 獲取請求中的文字輸入
         text_prompt = request.args.get('prompt')
@@ -363,40 +461,46 @@ def test_api():
         return jsonify({"error": "Internal server error"}), 500
 
 
-def call_tts_and_save(text, save_path):
+def call_tts_and_save(text, save_path, tts_service="local"):
+    """
+    tts_service: 可選 "local" 或 "openai"，預設為 local
+    """
     try:
-        # 呼叫 OpenAI 的 TTS API
-        response = openai.audio.speech.create(
-            model="tts-1",  # 可以使用 tts-1-hd 來獲得更高品質的音頻
-            voice="nova",   # 指定所需的聲音
-            input=text      # 輸入文字
-        )
-        
-        # 暫時將 TTS 生成的音頻保存為中間檔案
-        temp_output = save_path.replace(".wav", "_temp.wav")
-        with open(temp_output, "wb") as f:
-            f.write(response.read())
-        print(f"暫存音頻已保存到 {temp_output}")
-        
-        # 使用 ffmpeg 將暫存音頻轉換為 PCM 格式的 .wav 檔案
-        ffmpeg_command = [
-            'ffmpeg',
-            '-y',                   # 加入 -y 強制覆蓋已存在的檔案
-            '-i', temp_output,       # 輸入文件
-            '-acodec', 'pcm_s16le',  # 使用 PCM 格式
-            '-ar', '44100',          # 設置採樣率
-            save_path                # 輸出文件
-        ]
-        subprocess.run(ffmpeg_command, check=True)
-        print(f"已轉換音頻並保存到 {save_path}")
-        
-        # 刪除暫存文件
-        if os.path.exists(temp_output):
-            os.remove(temp_output)
-            print(f"刪除了暫存音頻文件: {temp_output}")
-    
+        if tts_service == "openai":
+            # 使用 OpenAI TTS
+            response = openai.audio.speech.create(
+                model="tts-1",
+                voice="nova",
+                input=text
+            )
+
+            temp_output = save_path.replace(".wav", "_temp.wav")
+            with open(temp_output, "wb") as f:
+                f.write(response.read())
+            print(f"暫存音頻已保存到 {temp_output}")
+
+            ffmpeg_command = [
+                'ffmpeg',
+                '-y',
+                '-i', temp_output,
+                '-acodec', 'pcm_s16le',
+                '-ar', '44100',
+                save_path
+            ]
+            subprocess.run(ffmpeg_command, check=True)
+            print(f"已轉換音頻並保存到 {save_path}")
+
+            if os.path.exists(temp_output):
+                os.remove(temp_output)
+                print(f"刪除了暫存音頻文件: {temp_output}")
+
+        else:
+            # 使用本地 TTS 服務
+            uri = f"http://127.0.0.1:9880/?text={text}&text_language=zh"
+            stream_audio_from_api(uri, save_path)
+
     except Exception as e:
-        print(f"調用 TTS API 時發生錯誤: {e}")
+        print(f"TTS 生成時發生錯誤（{tts_service}）: {e}")
 
 def stream_audio_from_api(uri, save_path):
     try:
