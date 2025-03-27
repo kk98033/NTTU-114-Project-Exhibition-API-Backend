@@ -59,6 +59,8 @@ import uuid
 import openai
 from dotenv import load_dotenv
 
+from flask_cors import CORS
+
 # Load environment variables from .env file
 load_dotenv()
 
@@ -117,6 +119,7 @@ class ColoredFormatter(logging.Formatter):
         return f"{log_color}{message}{reset_color}"
 
 app = Flask(__name__)
+CORS(app)  # 允許所有來源跨域
 app.config['UPLOAD_FOLDER'] = os.path.join(os.getcwd(), 'uploads')
 app.config['DENOSIED_FOLDER'] = os.path.join(os.getcwd(), 'denoised')
 app.config['OUTPUT_FOLDER'] = os.path.join(os.getcwd(), 'output')
