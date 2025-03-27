@@ -3,6 +3,7 @@ from utils.WhisperTranscriber import WhisperTranscriber
 from utils.Denoiser import Denoiser
 
 from flask import Flask, request, jsonify, send_file, make_response, Response
+from flask_cors import CORS
 from requests_toolbelt.multipart.encoder import MultipartEncoder
 from werkzeug.utils import secure_filename
 import requests
@@ -59,6 +60,7 @@ class ColoredFormatter(logging.Formatter):
         return f"{log_color}{message}{reset_color}"
 
 app = Flask(__name__)
+CORS(app)  # 允許所有來源跨域
 app.config['UPLOAD_FOLDER'] = os.path.join(os.getcwd(), 'uploads')
 app.config['DENOSIED_FOLDER'] = os.path.join(os.getcwd(), 'denoised')
 app.config['OUTPUT_FOLDER'] = os.path.join(os.getcwd(), 'output')
@@ -206,4 +208,4 @@ if __name__ == '__main__':
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
     os.makedirs(app.config['DENOSIED_FOLDER'], exist_ok=True)
     os.makedirs(app.config['OUTPUT_FOLDER'], exist_ok=True)
-    app.run(host='0.0.0.0', port=6969, debug=True, use_reloader=False)
+    app.run(host='0.0.0.0', port=443, debug=True, use_reloader=False)
