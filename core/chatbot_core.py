@@ -39,7 +39,17 @@ warnings.filterwarnings("ignore", category=InsecureRequestWarning)
 -------- Agent 可以使用的工具 --------
 """
 def web_search(keyword: str) -> str:
-    """根據給定的關鍵字進行網頁搜尋並返回搜尋結果的主要文字內容。(keyword 只能輸入中文)"""
+    """
+    根據給定的關鍵字進行網頁搜尋並返回搜尋結果的主要文字內容。(keyword 只能輸入中文)
+
+    🚨 工具使用說明：
+    這是 Agent 在處理「需要事實查核」的問題時，**第二優先使用的工具**。
+
+    ⚠️ 注意：
+    - keyword 必須為 **繁體中文**。
+    - 避免查詢 PDF 內容（已自動跳過 .pdf 結尾的連結）。
+    - 回傳內容會包含各文章段落，並提示使用者這是「根據網頁整理的繁體中文摘要」。
+    """
     urls = get_search_url(keyword=keyword)
     print(urls)
     result = f'[根據以下文章內容，使用"**繁體中文**"整理有關於"{keyword}"的部分]:\n'
@@ -127,106 +137,124 @@ class ChatBot:
 
     def configure_agent(self):
         path = "./storage/taiwanese"
-        if not os.path.exists(path):
-            print('storage does not exist!')
-            # os.makedirs(path)
-            tw_docs = SimpleDirectoryReader(
-                input_files=["./pdfs/原住民資料.pdf", "./pdfs/原住民資料2.pdf"]
-            ).load_data()
-
-        # nttu_path = "./storage/nttu"
-        # if not os.path.exists(nttu_path):
-        #     nttu_docs = SimpleDirectoryReader(
-        #         input_files=["./pdfs/台東大學介紹.pdf"]
+        # if not os.path.exists(path):
+        #     print('storage does not exist!')
+        #     # os.makedirs(path)
+        #     tw_docs = SimpleDirectoryReader(
+        #         input_files=["./pdfs/原住民資料.pdf", "./pdfs/原住民資料2.pdf"]
         #     ).load_data()
 
-        museum_path = "./storage/museum"
-        if not os.path.exists(museum_path):
-            print(f'storage {museum_path} does not exist!')
-            museum_docs = SimpleDirectoryReader(
-                input_files=["./pdfs/博物館物品.pdf"]
+        nttu_path = "./storage/nttu"
+        if not os.path.exists(nttu_path):
+            print('storage does not exist!')
+            nttu_docs = SimpleDirectoryReader(
+                input_files=["./pdfs/東大資工資料.pdf"]
             ).load_data()
 
+        # museum_path = "./storage/museum"
+        # if not os.path.exists(museum_path):
+        #     print(f'storage {museum_path} does not exist!')
+        #     museum_docs = SimpleDirectoryReader(
+        #         input_files=["./pdfs/博物館物品.pdf"]
+        #     ).load_data()
+
         try:
-            storage_context = StorageContext.from_defaults(persist_dir=path)
-            tw_index = load_index_from_storage(storage_context)
+            # storage_context = StorageContext.from_defaults(persist_dir=path)
+            # tw_index = load_index_from_storage(storage_context)
 
-            # nttu_storage_context = StorageContext.from_defaults(persist_dir=nttu_path)
-            # nttu_index = load_index_from_storage(nttu_storage_context)
+            nttu_storage_context = StorageContext.from_defaults(persist_dir=nttu_path)
+            nttu_index = load_index_from_storage(nttu_storage_context)
 
-            museum_storage_context = StorageContext.from_defaults(persist_dir=museum_path)
-            museuem_index = load_index_from_storage(museum_storage_context)
+            # museum_storage_context = StorageContext.from_defaults(persist_dir=museum_path)
+            # museuem_index = load_index_from_storage(museum_storage_context)
 
             index_loaded = True
             print("Index loaded!")
         except:
             index_loaded = False
             print("Index not loaded!")
-            if tw_docs:
-                tw_index = VectorStoreIndex.from_documents(tw_docs)
-                tw_index.storage_context.persist(persist_dir=path)
-                index_loaded = True
-
-            # if nttu_docs:
-            #     nttu_index = VectorStoreIndex.from_documents(nttu_docs)
-            #     nttu_index.storage_context.persist(persist_dir=nttu_path)
+            # if tw_docs:
+            #     tw_index = VectorStoreIndex.from_documents(tw_docs)
+            #     tw_index.storage_context.persist(persist_dir=path)
             #     index_loaded = True
 
-            if museum_docs:
-                museuem_index = VectorStoreIndex.from_documents(museum_docs)
-                museuem_index.storage_context.persist(persist_dir=museum_path)
+            if nttu_docs:
+                nttu_index = VectorStoreIndex.from_documents(nttu_docs)
+                nttu_index.storage_context.persist(persist_dir=nttu_path)
                 index_loaded = True
 
-        if index_loaded:
-            tw_citation_engine = CitationQueryEngine.from_args(
-                tw_index, similarity_top_k=3, citation_chunk_size=512)
-            
-            # nttu_citation_engine = CitationQueryEngine.from_args(
-            #     nttu_index, similarity_top_k=3, citation_chunk_size=512)
+            # if museum_docs:
+            #     museuem_index = VectorStoreIndex.from_documents(museum_docs)
+            #     museuem_index.storage_context.persist(persist_dir=museum_path)
+            #     index_loaded = True
 
-            museum_citation_engine = CitationQueryEngine.from_args(
-                museuem_index, similarity_top_k=4, citation_chunk_size=1024)
+        if index_loaded:
+            # tw_citation_engine = CitationQueryEngine.from_args(
+            #     tw_index, similarity_top_k=3, citation_chunk_size=512)
+            
+            nttu_citation_engine = CitationQueryEngine.from_args(
+                nttu_index, similarity_top_k=3, citation_chunk_size=512)
+
+            # museum_citation_engine = CitationQueryEngine.from_args(
+            #     museuem_index, similarity_top_k=4, citation_chunk_size=1024)
 
             # Load custom prompts for citation engine
             with open("core/promp_configs/query_engine_prompt_CN.json", "r", encoding="utf-8") as file:
                 prompts_dict = json.load(file)
             custom_qa_prompt_str = prompts_dict.get("response_synthesizer:text_qa_template")['PromptTemplate']['template']
             custom_refine_prompt_str = prompts_dict.get("response_synthesizer:refine_template")['PromptTemplate']['template']
-            tw_citation_engine.update_prompts(
+            nttu_citation_engine.update_prompts(
                 {
                     "response_synthesizer:text_qa_template": PromptTemplate(custom_qa_prompt_str),
                     "response_synthesizer:refine_template": PromptTemplate(custom_refine_prompt_str)
                 }
             )
+            # tw_citation_engine.update_prompts(
+            #     {
+            #         "response_synthesizer:text_qa_template": PromptTemplate(custom_qa_prompt_str),
+            #         "response_synthesizer:refine_template": PromptTemplate(custom_refine_prompt_str)
+            #     }
+            # )
 
-            citation_tool = QueryEngineTool(
-                query_engine=tw_citation_engine,
-                metadata=ToolMetadata(
-                    name="Taiwanese_indigenous",
-                    description="用於幫助回答有關台灣原住民的問題，遇到**原住民**、**部落**或者**XX族**相關問題一律要使用此工具。例如:台灣原住民有幾族?, 介紹'XX族', 任何有關於'原住民'、'XX族'、'族群'或者是'部落'的問題"
-                )
-            )
-
-            # nttu_citation_tool = QueryEngineTool(
-            #     query_engine=nttu_citation_engine,
+            # citation_tool = QueryEngineTool(
+            #     query_engine=tw_citation_engine,
             #     metadata=ToolMetadata(
-            #         name="NTTU_tool",
-            #         description="用於回答有關'台東大學', '東大','nttu'的問題。"
+            #         name="Taiwanese_indigenous",
+            #         description="用於幫助回答有關台灣原住民的問題，遇到**原住民**、**部落**或者**XX族**相關問題一律要使用此工具。例如:台灣原住民有幾族?, 介紹'XX族', 任何有關於'原住民'、'XX族'、'族群'或者是'部落'的問題"
             #     )
             # )
 
-            museum_citation_tool = QueryEngineTool(
-                query_engine=museum_citation_engine,
+            nttu_citation_tool = QueryEngineTool(
+                query_engine=nttu_citation_engine,
                 metadata=ToolMetadata(
-                    name="Museum_tool",
-                    description="用於回答有關'博物館'文物問題。例如:'編號AT003217-001是甚麼物品?','介紹人形木雕板...任何有關於'博物館'的問題"
+                    name="nttu_freshman_guide",
+                    description="""本工具專為回答與『國立臺東大學』或者與『大學』相關的問題而設計，特別是針對『台東大學資工系（CSIE）』以及『新生入學』相關的疑問提供最正確的查詢結果。
+
+                    ### 使用規則：
+
+                    1. 當使用者詢問與『台東大學』相關的問題（如：交通、宿舍、學餐、學校附近美食、迎新活動、選課、社團、校園生活）時，**必須使用本工具進行查詢**。
+                    2. 當使用者詢問『資工系』相關的課程、活動、課程地圖、修課建議、畢業學分、教授資訊等問題時，**必須使用本工具查詢**。
+                    3. 當使用者為**新生**，並詢問入學流程、注意事項、生活大小事（如：筆電需自備嗎？要準備什麼？課表怎麼看？）時，**一定要使用本工具回答**。
+                    4. 若使用者提到關鍵詞如：「台東大學」、「資工系」、「東大」、「nttu」、「新生」、「入學」、「學務」、「生活」、「大學生活」、「學長姐」、「學姊」、「學校」等，**請優先使用此工具回應問題**。
+
+                    本工具會回傳根據 RAG 檢索到的準確資料來源，是回答台東大學、學校問題與資工系問題的唯一首選工具。
+                    """
                 )
             )
 
+            # museum_citation_tool = QueryEngineTool(
+            #     query_engine=museum_citation_engine,
+            #     metadata=ToolMetadata(
+            #         name="Museum_tool",
+            #         description="用於回答有關'博物館'文物問題。例如:'編號AT003217-001是甚麼物品?','介紹人形木雕板...任何有關於'博物館'的問題"
+            #     )
+            # )
+
             show_RAG_sources_tool = FunctionTool.from_defaults(fn=self.show_RAG_sources)
 
+            tools = [nttu_citation_tool, show_RAG_sources_tool, web_search_tool]
             # tools = [nttu_citation_tool, citation_tool, show_RAG_sources_tool, web_search_tool]
-            tools = [museum_citation_tool, citation_tool, show_RAG_sources_tool, web_search_tool]
+            # tools = [museum_citation_tool, citation_tool, show_RAG_sources_tool, web_search_tool]
             agent = ReActAgent.from_tools(tools=tools, verbose=True, embed_model="local")
 
             # Load system prompts from file
@@ -273,8 +301,21 @@ class ChatBot:
         # not streaming
         self.response = self.agent.chat(input_text)
         return self.response
+    
+    def get_last_tool_usage_raw(self) -> list:
+        if not self.response or not hasattr(self.response, 'step_output'):
+            return []
 
-
+        return [
+            {
+                "thought": step.thought,
+                "action": step.action,
+                "tool_input": step.tool_input,
+                "observation": step.observation
+            }
+            for step in self.response.step_output
+        ]
+    
 if __name__ == "__main__":
     bot = ChatBot()
     while True:

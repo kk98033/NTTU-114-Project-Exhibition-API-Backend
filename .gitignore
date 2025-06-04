@@ -12,3 +12,4 @@ denoised/
 .env
 ffmpeg.exe
 codecs_list.txt
+env-py310/

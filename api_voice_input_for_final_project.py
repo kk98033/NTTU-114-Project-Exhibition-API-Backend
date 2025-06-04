@@ -14,6 +14,11 @@ import subprocess
 import threading
 import time
 
+import os
+
+ffmpeg_path = r"D:\0520申請入學\2025March專題\ffmpeg\bin"
+os.environ["PATH"] = ffmpeg_path + os.pathsep + os.environ["PATH"]
+
 # 用於保存共享狀態
 class ChatAgentManager:
     def __init__(self):
@@ -77,6 +82,30 @@ if app.logger.hasHandlers():
 
 app.logger.addHandler(handler)
 app.logger.setLevel(logging.INFO)
+
+# 新增 FileHandler 將 log 寫入檔案（以附加模式）
+file_handler = logging.FileHandler('server_log.txt', mode='a', encoding='utf-8')
+file_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+file_handler.setFormatter(file_formatter)
+app.logger.addHandler(file_handler)
+
+# 設置日誌記錄器
+handler = logging.StreamHandler()
+formatter = ColoredFormatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
+
+# 清除現有的所有處理器
+if app.logger.hasHandlers():
+    app.logger.handlers.clear()
+
+app.logger.addHandler(handler)
+app.logger.setLevel(logging.INFO)
+
+# 新增 FileHandler 寫入本地 txt 檔
+file_handler = logging.FileHandler('server_log.txt', mode='a', encoding='utf-8')
+file_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+file_handler.setFormatter(file_formatter)
+app.logger.addHandler(file_handler)
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
@@ -156,6 +185,92 @@ def normal_chat():
         app.logger.warning(f"File type not allowed: {file.filename}")
         return jsonify({"error": "File type not allowed"}), 400
 
+@app.route('/text_chat', methods=['POST'])
+def text_chat():
+    """
+    通用純文字聊天 API，可選擇是否產生語音
+
+    請求類型：application/json
+        {
+            "text": "你想問的內容",
+            "generate_audio": true 或 false（可選，預設為 true），
+            "tts_service": "local" 或 "openai"（可選，預設為 local）
+        }
+
+    回傳：
+        若 generate_audio 為 false：
+            - JSON: {"response": 回應文字}
+        若 generate_audio 為 true：
+            - multipart/form-data:
+                - json: {"response": 回應文字}
+                - file: base64 編碼的 output.wav
+
+    用途：前端通用文字輸入，支援語音輸出功能
+    """
+    try:
+        # 獲取請求中的文字輸入
+        if not request.json or 'text' not in request.json:
+            app.logger.warning("No 'text' parameter in the request")
+            return jsonify({"error": "No 'text' parameter in the request"}), 400
+
+        text_input = request.json['text']
+        if not text_input.strip():
+            app.logger.warning("Empty 'text' parameter in the request")
+            return jsonify({"error": "Empty 'text' parameter"}), 400
+
+        # 獲取可選參數 generate_audio（預設為 True）
+        generate_audio = request.json.get('generate_audio', True)
+        if isinstance(generate_audio, str):
+            generate_audio = generate_audio.lower() == 'true'
+
+        app.logger.info(f"Received text input: {text_input}, Generate Audio: {generate_audio}")
+
+        # 使用 ChatBot 處理文字輸入
+        chat_agent = chat_agent_manager.get_agent()
+        response = chat_agent.normal_chat(text_input)
+        response_text = response.response
+
+        app.logger.info(f"\033[94m[Bot response] {response_text}\033[0m")
+
+        if not generate_audio:
+            # 如果不需要生成音訊，直接返回文字回應
+            return jsonify({
+                "response": response_text
+            }), 200
+
+        # 生成音訊檔案
+        output_audio = os.path.join(app.config['OUTPUT_FOLDER'], 'output.wav')
+        call_tts_and_save(response_text, output_audio)
+
+        # 檢查文件是否成功保存
+        if not os.path.exists(output_audio):
+            app.logger.error(f"Error: Output audio file {output_audio} not found.")
+            return jsonify({"error": "Audio file not found"}), 500
+
+        # 構建多部分表單數據響應
+        with open(output_audio, 'rb') as audio_file:
+            audio_base64 = base64.b64encode(audio_file.read()).decode('utf-8')
+
+            return jsonify({
+                "response": response_text,
+                "audio": audio_base64
+            })
+
+            encoder = MultipartEncoder(
+                fields={
+                    'json': ('json', jsonify({
+                        'response': response_text
+                    }).get_data(as_text=True), 'application/json'),
+                    'file': ('output.wav', audio_base64, 'audio/wav')
+                }
+            )
+            response = make_response(encoder.to_string())
+            response.headers['Content-Type'] = encoder.content_type
+            return response
+
+    except Exception as e:
+        app.logger.error(f"Error processing text input: {e}", exc_info=True)
+        return jsonify({"error": "Internal server error"}), 500
     
 def call_tts_and_save(text, save_path):
     uri = f"http://127.0.0.1:9880/?text={text}&text_language=zh"
