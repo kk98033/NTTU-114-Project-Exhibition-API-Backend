@@ -328,4 +328,6 @@ if __name__ == '__main__':
     os.makedirs('uploads', exist_ok=True)
     os.makedirs('denoised', exist_ok=True)
     os.makedirs('output', exist_ok=True)
-    socketio.run(app, host='0.0.0.0', port=6969, debug=True)
+    # TODO: debug
+    # socketio.run(app, host='0.0.0.0', port=6969, debug=True)
+    socketio.run(app, host="0.0.0.0", port=6969, debug=True, allow_unsafe_werkzeug=True)

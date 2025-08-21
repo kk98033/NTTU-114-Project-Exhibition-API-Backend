@@ -1,0 +1,13 @@
+services:
+  socket:
+    build:
+      context: .
+      args:
+        BASE_IMAGE: pytorch/pytorch:2.4.0-cuda12.1-cudnn9-runtime
+    container_name: ai-socket
+    ports:
+      - "6969:6969"
+    gpus: all
+    env_file:
+      - .env
+    restart: unless-stopped
