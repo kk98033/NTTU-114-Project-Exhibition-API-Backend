@@ -3,6 +3,8 @@ import json
 import requests
 from bs4 import BeautifulSoup
 import warnings
+import asyncio
+from queue import Queue
 
 from dotenv import load_dotenv
 import nltk
@@ -19,11 +21,14 @@ from llama_index.core import (
 from llama_index.core.tools import QueryEngineTool, ToolMetadata, FunctionTool
 from llama_index.core.query_engine import CitationQueryEngine, SubQuestionQueryEngine 
 from llama_index.llms.ollama import Ollama
-from llama_index.core.agent import ReActAgent
+# from llama_index.core.agent import ReActAgent
+from llama_index.core.agent.workflow import ReActAgent
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.llms.openai import OpenAI
 from llama_index.embeddings.openai import OpenAIEmbedding
 from llama_index.core.tools import FunctionTool
+from llama_index.core.agent.workflow import AgentStream, ToolCallResult
+from llama_index.core.workflow import Context
 
 # load .env file
 load_dotenv()
@@ -42,10 +47,10 @@ def web_search(keyword: str) -> str:
     """
     根據給定的關鍵字進行網頁搜尋並返回搜尋結果的主要文字內容。(keyword 只能輸入中文)
 
-    🚨 工具使用說明：
+    工具使用說明：
     這是 Agent 在處理「需要事實查核」的問題時，**第二優先使用的工具**。
 
-    ⚠️ 注意：
+    注意：
     - keyword 必須為 **繁體中文**。
     - 避免查詢 PDF 內容（已自動跳過 .pdf 結尾的連結）。
     - 回傳內容會包含各文章段落，並提示使用者這是「根據網頁整理的繁體中文摘要」。
@@ -105,6 +110,7 @@ class ChatBot:
         self.prepare_environment()
         self.agent = self.configure_agent()
         self.response = None
+        self.ctx = None
 
     def setup_settings(self):
         Settings.embed_model = HuggingFaceEmbedding(model_name="intfloat/multilingual-e5-large-instruct")
@@ -255,13 +261,16 @@ class ChatBot:
             tools = [nttu_citation_tool, show_RAG_sources_tool, web_search_tool]
             # tools = [nttu_citation_tool, citation_tool, show_RAG_sources_tool, web_search_tool]
             # tools = [museum_citation_tool, citation_tool, show_RAG_sources_tool, web_search_tool]
-            agent = ReActAgent.from_tools(tools=tools, verbose=True, embed_model="local")
+            # agent = ReActAgent.from_tools(tools=tools, verbose=True, embed_model="local")
+            agent = ReActAgent(tools=tools)
+            self.ctx = Context(agent)
 
             # Load system prompts from file
             react_system_header_str = self.load_string_from_file('core/promp_configs/react_system_header_str_CN.txt')
             if react_system_header_str:
                 react_system_prompt = PromptTemplate(react_system_header_str)
-                agent.update_prompts({"agent_worker:system_prompt": react_system_prompt})
+                # agent.update_prompts({"agent_worker:system_prompt": react_system_prompt})
+                agent.update_prompts({"react_header": react_system_prompt})
                 print("System prompt updated successfully!")
             return agent
         else:
@@ -297,6 +306,45 @@ class ChatBot:
         self.response = self.agent.stream_chat(input_text)
         return self.response
     
+    async def chat(self, input_text):
+        ctx = self.ctx
+        handler = self.agent.run(input_text, ctx=ctx)
+
+        async for ev in handler.stream_events():
+            if isinstance(ev, AgentStream):
+                print(ev.delta, end="", flush=True)
+            elif isinstance(ev, ToolCallResult):
+                print(f"\n[Tool Call] {ev.tool_name}({ev.tool_kwargs}) -> {ev.tool_output}")
+
+        final_response = await handler
+        print("\nFinal:", final_response.response)
+
+    # async def chat(self, input_text, on_token=None, on_step=None):
+    #     ctx = self.ctx
+    #     handler = self.agent.run(input_text, ctx=ctx)
+
+    #     recent_thought = ""
+
+    #     async for ev in handler.stream_events():
+    #         if isinstance(ev, AgentStream):
+    #             if "Thought:" in ev.delta:
+    #                 recent_thought = ev.delta.split("Thought:")[-1].strip()
+    #             if on_token:
+    #                 await on_token(ev.delta)
+
+    #         elif isinstance(ev, ToolCallResult):
+    #             if on_step:
+    #                 await on_step({
+    #                     "thought": recent_thought, 
+    #                     "action": ev.tool_name,
+    #                     "tool_input": ev.tool_kwargs,
+    #                     "observation": ev.tool_output.content  # 或 ev.tool_output.raw_output.response
+    #                 })
+
+    #     final_response = await handler
+    #     self.response = final_response
+    #     return final_response
+        
     def normal_chat(self, input_text):
         # not streaming
         self.response = self.agent.chat(input_text)
@@ -306,18 +354,26 @@ class ChatBot:
         if not self.response or not hasattr(self.response, 'step_output'):
             return []
 
+        def safe_to_str(val):
+            try:
+                return str(val)
+            except Exception:
+                return repr(val)
+
         return [
             {
-                "thought": step.thought,
-                "action": step.action,
-                "tool_input": step.tool_input,
-                "observation": step.observation
+                "thought": safe_to_str(step.thought),
+                "action": safe_to_str(step.action),
+                "tool_input": safe_to_str(step.tool_input),
+                "observation": safe_to_str(step.observation),
             }
             for step in self.response.step_output
         ]
     
 if __name__ == "__main__":
     bot = ChatBot()
+    loop = asyncio.get_event_loop()
+
     while True:
         user_input = input("User: ")
         if user_input.lower() == "exit":
@@ -326,12 +382,8 @@ if __name__ == "__main__":
             bot = ChatBot()
             print("Chatbot has been reset.")
         else:
-            # Streaming response
-            # response = bot.chat(user_input)
-            # for token in response.response_gen:
-            #     print(token, end="", flush=True)
-            # print()
+            loop.run_until_complete(bot.chat(user_input))
 
             # not streaming
-            response = bot.normal_chat(user_input)
-            print("Agent:", response)
+            # response = bot.normal_chat(user_input)
+            # print("Agent:", response)

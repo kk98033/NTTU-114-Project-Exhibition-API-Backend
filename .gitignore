@@ -13,3 +13,4 @@ denoised/
 ffmpeg.exe
 codecs_list.txt
 env-py310/
+server_log.txt
